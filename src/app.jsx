@@ -1011,7 +1011,17 @@ export default function App() {
                                      </div>
                                  </div>
                                  <div className='overflow-y-auto flex-grow pr-2'>
-                                     {isLoading ? <div className="flex justify-center items-center gap-3 p-10 text-lg text-gray-500"><LoaderCircle className="animate-spin" /></div> : combinedStores.length > 0 ? (
+                                     {isLocating ? (
+                                        <div className="flex flex-col justify-center items-center gap-3 p-10 text-gray-500">
+                                            <LoaderCircle className="animate-spin" size={32} />
+                                            <span className="mt-2 text-sm">Finding nearby stores...</span>
+                                        </div>
+                                    ) : isLoading ? (
+                                        <div className="flex flex-col justify-center items-center gap-3 p-10 text-gray-500">
+                                            <LoaderCircle className="animate-spin" size={32}/>
+                                            <span className="mt-2 text-sm">Loading store list...</span>
+                                        </div>
+                                    ) : combinedStores.length > 0 ? (
                                          <ul className='space-y-2'>
                                              {combinedStores.map(store => (
                                                  <li key={store.id}>
@@ -1023,7 +1033,13 @@ export default function App() {
                                                  </li>
                                              ))}
                                          </ul>
-                                     ) : ( <p className='text-center text-gray-500 p-6'>No stores found. Try expanding your search radius or changing your location.</p> )}
+                                     ) : ( 
+                                        <div className="text-center text-gray-500 p-6">
+                                            <PackageSearch size={40} className="mx-auto mb-2" />
+                                            <p>No stores found.</p>
+                                            <p className="text-sm">Try expanding your search radius, or add the first store to the map!</p>
+                                        </div>
+                                     )}
                                  </div>
                                  {!isGuest && <div className='flex-shrink-0 pt-4 mt-4 border-t border-gray-200'>
                                      <button onClick={handleAddStoreModalOpen} className='w-full flex items-center justify-center gap-2 bg-gray-200 hover:bg-green-600 hover:text-white text-gray-800 font-bold py-3 px-4 rounded-md transition-colors'> <PlusCircle size={20}/> Add New Store </button>

@@ -216,7 +216,7 @@ export default function App() {
         if (navigator.geolocation) {
             const options = {
                 enableHighAccuracy: true,
-                timeout: 120000,
+                timeout: 10000, // Reduced timeout for quicker feedback
                 maximumAge: 0
             };
 
@@ -234,17 +234,13 @@ export default function App() {
                     console.error("Geolocation failed:", error.message || "An unknown error occurred.");
                     let errorMessage;
                     switch(error.code) {
-                        case 1: 
-                            if (error.message && error.message.includes("permissions policy")) {
-                                errorMessage = "Location is blocked by the browser in this preview. Please open the app in a new tab to use location features. You can still search for stores by name.";
-                            } else {
-                                errorMessage = "Location access denied. Please enable location permissions for this site in your browser settings.";
-                            }
+                        case 1: // PERMISSION_DENIED
+                             errorMessage = "Location access denied. Please enable location permissions for this site in your browser settings, or set your location manually.";
                             break;
-                        case 2:
+                        case 2: // POSITION_UNAVAILABLE
                             errorMessage = "Location information is unavailable. This can be caused by a poor GPS signal or network issues.";
                             break;
-                        case 3: 
+                        case 3: // TIMEOUT
                             errorMessage = "Could not get your location in time. Please try refreshing, or set your location manually.";
                             break;
                         default:
@@ -266,7 +262,7 @@ export default function App() {
 
     // --- Fetch Stores Effect ---
     useEffect(() => {
-        if (!db || !isAuthReady) return;
+        if (!db || !isAuthReady || !user) return; // Guard against fetching before user is authenticated
 
         const storesCollectionPath = `artifacts/${appId}/public/data/stores`;
         const storesRef = collection(db, storesCollectionPath);
@@ -280,7 +276,7 @@ export default function App() {
             setIsLoading(false);
         }, (err) => {
             console.error("Error fetching stores:", err);
-            setError("Could not fetch store data.");
+            setError("Could not fetch store data. Check Firestore rules and collection path.");
             setIsLoading(false);
         });
 

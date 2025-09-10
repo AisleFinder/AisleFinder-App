@@ -1,6 +1,7 @@
+/* global __app_id, __firebase_config */
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, signInAnonymously } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signOut, signInAnonymously, signInWithCustomToken, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { 
     getFirestore, 
     collection, 
@@ -30,6 +31,7 @@ const productCategories = [ 'Milk', 'Bread', 'Cheese', 'Eggs', 'Yogurt', 'Apples
 const productUnits = [ 'Select unit', 'L', 'ml', 'kg', 'g', 'pack', 'bottle', 'can', 'loaf', 'box', 'jar' ];
 
 // --- UI Components ---
+
 const LoginScreen = ({ onGoogleSignIn, onGuestSignIn, error }) => (
     <div className="bg-gray-50 text-gray-800 h-screen w-screen font-sans flex flex-col overflow-hidden">
         <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 p-4 shadow-sm z-20 flex-shrink-0">
@@ -104,6 +106,7 @@ export default function App() {
     const profileMenuRef = useRef(null);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isAddRecipeModalOpen, setIsAddRecipeModalOpen] = useState(false);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'aisle-finder-default';
 
     // Store state
     const [stores, setStores] = useState([]);
@@ -174,33 +177,37 @@ export default function App() {
 
     // --- Firebase Initialization Effect ---
     useEffect(() => {
-        // IMPORTANT: Replace this with environment variables in a real application
-        const firebaseConfig = {
-            apiKey: "AIzaSyCKPnQZLx7nIbgPXwnCDP-jfxRgwHYN2oE",
-            authDomain: "supermarket-product-find-b6413.firebaseapp.com",
-            projectId: "supermarket-product-find-b6413",
-            storageBucket: "supermarket-product-find-b6413.appspot.com",
-            messagingSenderId: "535791660877",
-            appId: "1:535791660877:web:16fea7d229721b790cd104",
-            measurementId: "G-WF47RRE10M"
-        };
-        
         try {
+            // For deployed environments like Vercel, use environment variables.
+            // For the local preview, use the injected __firebase_config.
+            const firebaseConfig = typeof __firebase_config !== 'undefined'
+                ? JSON.parse(__firebase_config)
+                : {
+                    apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+                    authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+                    projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+                    storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+                    messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+                    appId: process.env.REACT_APP_FIREBASE_APP_ID,
+                };
+
             const app = initializeApp(firebaseConfig);
             const firestoreDb = getFirestore(app);
             const firebaseAuth = getAuth(app);
             setDb(firestoreDb);
             setAuth(firebaseAuth);
 
-            onAuthStateChanged(firebaseAuth, (user) => {
+            const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
                 setUser(user);
                 setIsGuest(user ? user.isAnonymous : false);
                 setIsAuthReady(true);
             });
+            return () => unsubscribe();
         } catch (e) {
             console.error("Firebase initialization error:", e);
-            setError(e.message);
+            setError("Firebase configuration is missing or invalid.");
             setIsLoading(false);
+            setIsAuthReady(true);
         }
     }, []);
 
@@ -257,11 +264,11 @@ export default function App() {
         }
     }, []);
 
-    // --- Fetch Community & Google Stores Effect ---
+    // --- Fetch Stores Effect ---
     useEffect(() => {
         if (!db || !isAuthReady) return;
 
-        const storesCollectionPath = `stores`;
+        const storesCollectionPath = `artifacts/${appId}/public/data/stores`;
         const storesRef = collection(db, storesCollectionPath);
 
         const unsubscribe = onSnapshot(storesRef, (snapshot) => {
@@ -278,7 +285,7 @@ export default function App() {
         });
 
         return () => unsubscribe();
-    }, [db, isAuthReady, user, selectedStore]);
+    }, [db, isAuthReady, user, selectedStore, appId]);
     
     // --- Product Fetching Effect ---
     useEffect(() => {
@@ -287,7 +294,7 @@ export default function App() {
             return;
         }
         setIsProductsLoading(true);
-        const productsCollectionPath = `stores/${selectedStore.id}/products`;
+        const productsCollectionPath = `artifacts/${appId}/public/data/stores/${selectedStore.id}/products`;
         const unsubscribe = onSnapshot(collection(db, productsCollectionPath), (snapshot) => {
             const productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             productsData.sort((a, b) => a.name.localeCompare(b.name));
@@ -298,19 +305,19 @@ export default function App() {
             setIsProductsLoading(false);
         });
         return () => unsubscribe();
-    }, [db, isAuthReady, selectedStore]);
+    }, [db, isAuthReady, selectedStore, appId]);
     
     // --- Fetch Favourite Recipes Effect ---
     useEffect(() => {
         if (db && user && !isGuest) {
-            const favRecipesCollectionPath = `users/${user.uid}/favouriteRecipes`;
+            const favRecipesCollectionPath = `artifacts/${appId}/users/${user.uid}/favouriteRecipes`;
             const unsubscribe = onSnapshot(collection(db, favRecipesCollectionPath), (snapshot) => {
                 const favs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setFavouriteRecipes(favs);
             });
             return () => unsubscribe();
         }
-    }, [db, user, isGuest]);
+    }, [db, user, isGuest, appId]);
     
     // --- Effect to close dropdown on outside click ---
     useEffect(() => {
@@ -353,7 +360,7 @@ export default function App() {
 
         return storesWithDistance.filter(store => 
             store.name.toLowerCase().includes(storeSearchTerm.toLowerCase()) ||
-            store.address.toLowerCase().includes(storeSearchTerm.toLowerCase())
+            (store.address && store.address.toLowerCase().includes(storeSearchTerm.toLowerCase()))
         );
     }, [storeSearchTerm, stores, searchLocation]);
 
@@ -582,9 +589,9 @@ export default function App() {
             setError("Could not sign in with Google. Please try again.");
         }
     };
-    
+
     const handleGuestSignIn = async () => {
-         try {
+        try {
             await signInAnonymously(auth);
         } catch (error) {
             console.error("Guest Sign-In Error:", error);
@@ -649,7 +656,7 @@ export default function App() {
         if (isGuest) return;
         if (!selectedProduct || !user.uid || !db || !selectedStore) return;
         setIsUpdating(true);
-        const docRef = doc(db, `stores/${selectedStore.id}/products`, selectedProduct.id);
+        const docRef = doc(db, `artifacts/${appId}/public/data/stores/${selectedStore.id}/products`, selectedProduct.id);
         try {
             await updateDoc(docRef, { 
                 aisle: newAisle, 
@@ -680,7 +687,7 @@ export default function App() {
         const finalProductName = detail ? `${category} (${detail})` : category;
 
         setIsAddingProduct(true);
-        const productsCollectionRef = collection(db, `stores/${selectedStore.id}/products`);
+        const productsCollectionRef = collection(db, `artifacts/${appId}/public/data/stores/${selectedStore.id}/products`);
         
         try {
             await addDoc(productsCollectionRef, { 
@@ -703,7 +710,7 @@ export default function App() {
         setAddStoreError(null);
         try {
             const coords = await geocodeAddressWithGemini(newStoreAddress);
-            const storesCollectionRef = collection(db, `stores`);
+            const storesCollectionRef = collection(db, `artifacts/${appId}/public/data/stores`);
             await addDoc(storesCollectionRef, { 
                 name: newStoreName.trim(), 
                 address: newStoreAddress.trim(), 
@@ -777,7 +784,7 @@ export default function App() {
 
     const handleSaveRecipe = async (recipeToSave) => {
         if (isGuest || !db || !user) return;
-        const favRecipesCollectionRef = collection(db, `users/${user.uid}/favouriteRecipes`);
+        const favRecipesCollectionRef = collection(db, `artifacts/${appId}/users/${user.uid}/favouriteRecipes`);
         try {
             await addDoc(favRecipesCollectionRef, recipeToSave);
         } catch (err) {
@@ -787,7 +794,7 @@ export default function App() {
 
     const handleRemoveFavourite = async (recipeId) => {
         if (isGuest || !db || !user) return;
-        const favRecipeDocRef = doc(db, `users/${user.uid}/favouriteRecipes/${recipeId}`);
+        const favRecipeDocRef = doc(db, `artifacts/${appId}/users/${user.uid}/favouriteRecipes/${recipeId}`);
         try {
             await deleteDoc(favRecipeDocRef);
         } catch (err) {
@@ -797,7 +804,7 @@ export default function App() {
 
     const handleManualAddRecipe = async (recipeData) => {
         if(isGuest || !db || !user) return;
-        const favRecipesCollectionRef = collection(db, `users/${user.uid}/favouriteRecipes`);
+        const favRecipesCollectionRef = collection(db, `artifacts/${appId}/users/${user.uid}/favouriteRecipes`);
         try {
             await addDoc(favRecipesCollectionRef, recipeData);
         } catch(err) {
@@ -980,49 +987,49 @@ export default function App() {
             
             {/* Store Selection Modal and others remain here */}
             {isStoreModalOpen && (
-                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-                         <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-2xl border border-gray-200 flex flex-col" style={{height: 'min(90vh, 700px)'}}>
-                             <div className='flex justify-between items-center mb-4 flex-shrink-0'>
-                                 <h3 className="text-2xl font-bold text-green-600 flex items-center gap-2"><Store/> Select a Store</h3>
-                                 {<button onClick={() => setIsStoreModalOpen(false)} className="text-gray-500 hover:text-gray-800"><X /></button>}
-                             </div>
-                             <div className='flex-shrink-0'>
-                                 <div className="relative mb-4">
-                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                     <input type="text" placeholder="Search by name or address..." value={storeSearchTerm} onChange={(e) => setStoreSearchTerm(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md py-2 pl-10 pr-4 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
+                             <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-2xl border border-gray-200 flex flex-col" style={{height: 'min(90vh, 700px)'}}>
+                                 <div className='flex justify-between items-center mb-4 flex-shrink-0'>
+                                     <h3 className="text-2xl font-bold text-green-600 flex items-center gap-2"><Store/> Select a Store</h3>
+                                     <button onClick={() => setIsStoreModalOpen(false)} className="text-gray-500 hover:text-gray-800"><X /></button>
                                  </div>
-                                 <div className='mb-4 space-y-2'>
-                                     {isLocating && <div className='text-sm text-gray-500 flex items-center gap-2'><LoaderCircle className='animate-spin' size={16}/> Finding your location...</div>}
-                                     {locationError && <div className='text-sm text-red-600 p-2 bg-red-50 rounded-md'>{locationError}</div>}
-                                     {searchLocation && (
-                                         <div>
-                                             <label htmlFor="radius" className="block text-sm font-medium text-gray-700 mb-2">Search Radius: <span className='font-bold text-green-600'>{searchRadius} miles</span></label>
-                                             <input id='radius' type='range' min='1' max='25' value={searchRadius} onChange={e => setSearchRadius(Number(e.target.value))} className='w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600' />
-                                         </div>
-                                     )}
-                                     <button onClick={() => setIsManualLocationModalOpen(true)} className="text-sm text-green-600 font-semibold hover:underline">Set Location Manually</button>
+                                 <div className='flex-shrink-0'>
+                                     <div className="relative mb-4">
+                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                         <input type="text" placeholder="Search by name or address..." value={storeSearchTerm} onChange={(e) => setStoreSearchTerm(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md py-2 pl-10 pr-4 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500" />
+                                     </div>
+                                     <div className='mb-4 space-y-2'>
+                                         {isLocating && <div className='text-sm text-gray-500 flex items-center gap-2'><LoaderCircle className='animate-spin' size={16}/> Finding your location...</div>}
+                                         {locationError && <div className='text-sm text-red-600 p-2 bg-red-50 rounded-md'>{locationError}</div>}
+                                         {searchLocation && (
+                                             <div>
+                                                 <label htmlFor="radius" className="block text-sm font-medium text-gray-700 mb-2">Search Radius: <span className='font-bold text-green-600'>{searchRadius} miles</span></label>
+                                                 <input id='radius' type='range' min='1' max='25' value={searchRadius} onChange={e => setSearchRadius(Number(e.target.value))} className='w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-600' />
+                                             </div>
+                                         )}
+                                         <button onClick={() => setIsManualLocationModalOpen(true)} className="text-sm text-green-600 font-semibold hover:underline">Set Location Manually</button>
+                                     </div>
                                  </div>
+                                 <div className='overflow-y-auto flex-grow pr-2'>
+                                     {isLoading ? <div className="flex justify-center items-center gap-3 p-10 text-lg text-gray-500"><LoaderCircle className="animate-spin" /></div> : combinedStores.length > 0 ? (
+                                         <ul className='space-y-2'>
+                                             {combinedStores.map(store => (
+                                                 <li key={store.id}>
+                                                     <button onClick={() => handleStoreSelect(store)} className={`w-full text-left p-4 rounded-lg transition-colors border ${store.isCommunity ? 'bg-green-50 border-green-200 hover:bg-green-100' : 'bg-gray-100/50 border-gray-200 hover:bg-gray-100'}`}>
+                                                         <p className='font-semibold text-gray-800'>{store.name}</p>
+                                                         <p className='text-sm text-gray-600'>{store.address}</p>
+                                                         {store.distance !== Infinity && <p className='text-xs text-green-600 mt-1 font-semibold'>{store.distance.toFixed(1)} miles away</p>}
+                                                     </button>
+                                                 </li>
+                                             ))}
+                                         </ul>
+                                     ) : ( <p className='text-center text-gray-500 p-6'>No stores found. Try expanding your search radius or changing your location.</p> )}
+                                 </div>
+                                 {!isGuest && <div className='flex-shrink-0 pt-4 mt-4 border-t border-gray-200'>
+                                     <button onClick={handleAddStoreModalOpen} className='w-full flex items-center justify-center gap-2 bg-gray-200 hover:bg-green-600 hover:text-white text-gray-800 font-bold py-3 px-4 rounded-md transition-colors'> <PlusCircle size={20}/> Add New Store </button>
+                                 </div>}
                              </div>
-                             <div className='overflow-y-auto flex-grow pr-2'>
-                                 {isLoading ? <div className="flex justify-center items-center gap-3 p-10 text-lg text-gray-500"><LoaderCircle className="animate-spin" /></div> : combinedStores.length > 0 ? (
-                                     <ul className='space-y-2'>
-                                         {combinedStores.map(store => (
-                                             <li key={store.id}>
-                                                 <button onClick={() => handleStoreSelect(store)} className={`w-full text-left p-4 rounded-lg transition-colors border ${store.isCommunity ? 'bg-green-50 border-green-200 hover:bg-green-100' : 'bg-gray-100/50 border-gray-200 hover:bg-gray-100'}`}>
-                                                     <p className='font-semibold text-gray-800'>{store.name}</p>
-                                                     <p className='text-sm text-gray-600'>{store.address}</p>
-                                                     {store.distance !== Infinity && <p className='text-xs text-green-600 mt-1 font-semibold'>{store.distance.toFixed(1)} miles away</p>}
-                                                 </button>
-                                             </li>
-                                         ))}
-                                     </ul>
-                                 ) : ( <p className='text-center text-gray-500 p-6'>No stores found. Try expanding your search radius or changing your location.</p> )}
-                              </div>
-                              {!isGuest && <div className='flex-shrink-0 pt-4 mt-4 border-t border-gray-200'>
-                                  <button onClick={handleAddStoreModalOpen} className='w-full flex items-center justify-center gap-2 bg-gray-200 hover:bg-green-600 hover:text-white text-gray-800 font-bold py-3 px-4 rounded-md transition-colors'> <PlusCircle size={20}/> Add New Store </button>
-                              </div>}
                          </div>
-                     </div>
             )}
             
             {/* Manual Location Modal */}
@@ -1083,7 +1090,7 @@ export default function App() {
                                      )}
                                  </div>
                                  <div className="mt-auto pt-4">
-                                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                                     <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                                          <h4 className="text-md font-semibold text-green-800 flex items-center gap-2 justify-center"><Sparkles size={16}/> Create a list with AI</h4>
                                          <form onSubmit={handleGenerateList} className="mt-2">
                                              <input
@@ -1103,7 +1110,7 @@ export default function App() {
                                                  <h5 className="font-semibold text-gray-700">AI Suggestions:</h5>
                                                  <div className="max-h-32 overflow-y-auto space-y-1 mt-1 border p-2 rounded-md bg-white">
                                                      {generatedItems.map((item, index) => (
-                                                          <label key={index} className="flex items-center gap-2 p-1 rounded hover:bg-gray-100">
+                                                         <label key={index} className="flex items-center gap-2 p-1 rounded hover:bg-gray-100">
                                                              <input type="checkbox" checked={!!selectedAiItems[index]} onChange={() => handleAiItemToggle(index)} />
                                                              <span>{item.name} ({item.quantity})</span>
                                                          </label>
@@ -1123,50 +1130,50 @@ export default function App() {
                                  </div>
                              </div>
                              <div className="border-t md:border-t-0 md:border-l border-gray-200 pl-6 pt-6 md:pt-0">
-                                  <h4 className="text-lg font-semibold mb-2 text-gray-700 border-b pb-2 flex items-center gap-2"><ChefHat/> AI Recipe Corner</h4>
-                                  <button onClick={handleGenerateRecipe} disabled={isGeneratingRecipe} className="w-full mt-2 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-400">
-                                      {isGeneratingRecipe ? <LoaderCircle className="animate-spin"/> : <Sparkles/>}
-                                      {isGeneratingRecipe ? 'Thinking...' : '✨ Get Recipe Ideas'}
-                                  </button>
-                                  
-                                  {recipeError && <p className="text-red-500 text-sm mt-2">{recipeError}</p>}
+                                 <h4 className="text-lg font-semibold mb-2 text-gray-700 border-b pb-2 flex items-center gap-2"><ChefHat/> AI Recipe Corner</h4>
+                                 <button onClick={handleGenerateRecipe} disabled={isGeneratingRecipe} className="w-full mt-2 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-400">
+                                     {isGeneratingRecipe ? <LoaderCircle className="animate-spin"/> : <Sparkles/>}
+                                     {isGeneratingRecipe ? 'Thinking...' : '✨ Get Recipe Ideas'}
+                                 </button>
+                                 
+                                 {recipeError && <p className="text-red-500 text-sm mt-2">{recipeError}</p>}
 
-                                  {isGeneratingRecipe && <div className="text-center p-8 text-gray-500">Generating a delicious idea...</div>}
-                                  
-                                  {recipe && (
-                                       <div className="mt-4 text-sm space-y-3 animate-fade-in">
-                                           <div className="flex justify-between items-start">
-                                               <h5 className="font-bold text-lg text-green-700">{recipe.recipeName}</h5>
-                                               {!isGuest && (
-                                                   <button onClick={() => handleSaveRecipe(recipe)} className="flex items-center gap-1.5 bg-red-100 hover:bg-red-500 hover:text-white text-red-700 font-semibold py-1 px-2 rounded-md transition-colors text-xs">
-                                                       <Heart size={14} />
-                                                       <span>Save</span>
-                                                   </button>
-                                               )}
-                                           </div>
-                                           <p className="text-gray-600 italic">{recipe.description}</p>
-                                           <div>
-                                               <h6 className="font-semibold text-gray-800">Ingredients you have:</h6>
-                                               <ul className="list-disc list-inside text-gray-600">
-                                                   {recipe.ingredientsUsed.map((ing, i) => <li key={i}>{ing}</li>)}
-                                               </ul>
-                                           </div>
-                                            {recipe.missingIngredients && recipe.missingIngredients.length > 0 && (
-                                               <div>
-                                                   <h6 className="font-semibold text-orange-600">You might also need:</h6>
-                                                   <ul className="list-disc list-inside text-gray-600">
-                                                       {recipe.missingIngredients.map((ing, i) => <li key={i}>{ing}</li>)}
-                                                   </ul>
-                                               </div>
-                                            )}
-                                           <div>
-                                               <h6 className="font-semibold text-gray-800 mt-2">Instructions:</h6>
-                                               <ol className="list-decimal list-inside space-y-1 text-gray-600">
-                                                    {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
-                                               </ol>
-                                           </div>
-                                       </div>
-                                  )}
+                                 {isGeneratingRecipe && <div className="text-center p-8 text-gray-500">Generating a delicious idea...</div>}
+                                 
+                                 {recipe && (
+                                     <div className="mt-4 text-sm space-y-3 animate-fade-in">
+                                         <div className="flex justify-between items-start">
+                                             <h5 className="font-bold text-lg text-green-700">{recipe.recipeName}</h5>
+                                             {!isGuest && (
+                                                 <button onClick={() => handleSaveRecipe(recipe)} className="flex items-center gap-1.5 bg-red-100 hover:bg-red-500 hover:text-white text-red-700 font-semibold py-1 px-2 rounded-md transition-colors text-xs">
+                                                     <Heart size={14} />
+                                                     <span>Save</span>
+                                                 </button>
+                                             )}
+                                         </div>
+                                         <p className="text-gray-600 italic">{recipe.description}</p>
+                                         <div>
+                                             <h6 className="font-semibold text-gray-800">Ingredients you have:</h6>
+                                             <ul className="list-disc list-inside text-gray-600">
+                                                 {recipe.ingredientsUsed.map((ing, i) => <li key={i}>{ing}</li>)}
+                                             </ul>
+                                         </div>
+                                         {recipe.missingIngredients && recipe.missingIngredients.length > 0 && (
+                                             <div>
+                                                 <h6 className="font-semibold text-orange-600">You might also need:</h6>
+                                                 <ul className="list-disc list-inside text-gray-600">
+                                                     {recipe.missingIngredients.map((ing, i) => <li key={i}>{ing}</li>)}
+                                                 </ul>
+                                             </div>
+                                         )}
+                                         <div>
+                                             <h6 className="font-semibold text-gray-800 mt-2">Instructions:</h6>
+                                             <ol className="list-decimal list-inside space-y-1 text-gray-600">
+                                                 {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
+                                             </ol>
+                                         </div>
+                                     </div>
+                                 )}
 
                              </div>
                          </div>
@@ -1175,32 +1182,32 @@ export default function App() {
             )}
             
             {isAddStoreModalOpen && (
-                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-                         <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-2xl border border-gray-200 relative">
-                             <button onClick={handleAddStoreModalClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><X /></button>
-                             <h3 className="text-2xl font-bold mb-6 text-green-600">Add a New Store</h3>
-                             <form onSubmit={handleAddNewStore}>
-                                 <div className="mb-4">
-                                     <label htmlFor="new-store-name" className="block text-sm font-medium text-gray-700 mb-2">Store Name</label>
-                                     <input id="new-store-name" type="text" value={newStoreName} onChange={(e) => setNewStoreName(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g., Asda Superstore" required />
-                                 </div>
-                                 <div className="mb-2">
-                                     <label htmlFor="new-store-address" className="block text-sm font-medium text-gray-700 mb-2">Store Address</label>
-                                     <div className="flex gap-2">
-                                         <input id="new-store-address" type="text" value={newStoreAddress} onChange={(e) => setNewStoreAddress(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g., Brighton Hill, Basingstoke" required />
-                                         <button type="button" onClick={handleFindAddress} disabled={isFindingAddress || !deviceLocation} className="p-2.5 bg-green-600 text-white rounded-md hover:bg-green-500 disabled:bg-gray-400">
-                                             {isFindingAddress ? <LoaderCircle className="animate-spin" /> : <LocateFixed />}
-                                         </button>
+                         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
+                             <div className="bg-white rounded-lg p-8 w-full max-w-md shadow-2xl border border-gray-200 relative">
+                                 <button onClick={handleAddStoreModalClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><X /></button>
+                                 <h3 className="text-2xl font-bold mb-6 text-green-600">Add a New Store</h3>
+                                 <form onSubmit={handleAddNewStore}>
+                                     <div className="mb-4">
+                                         <label htmlFor="new-store-name" className="block text-sm font-medium text-gray-700 mb-2">Store Name</label>
+                                         <input id="new-store-name" type="text" value={newStoreName} onChange={(e) => setNewStoreName(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g., Asda Superstore" required />
                                      </div>
-                                 </div>
-                                 {addStoreError && <p className="text-red-600 text-sm mb-4 mt-2">{addStoreError}</p>}
-                                 <button type="submit" disabled={isAddingStore} className="w-full flex mt-6 items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
-                                     {isAddingStore ? <LoaderCircle className="animate-spin" /> : <PlusCircle size={16} />}
-                                     {isAddingStore ? 'Adding...' : 'Add Store to Map'}
-                                 </button>
-                             </form>
+                                     <div className="mb-2">
+                                         <label htmlFor="new-store-address" className="block text-sm font-medium text-gray-700 mb-2">Store Address</label>
+                                         <div className="flex gap-2">
+                                             <input id="new-store-address" type="text" value={newStoreAddress} onChange={(e) => setNewStoreAddress(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2.5 text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g., Brighton Hill, Basingstoke" required />
+                                             <button type="button" onClick={handleFindAddress} disabled={isFindingAddress || !deviceLocation} className="p-2.5 bg-green-600 text-white rounded-md hover:bg-green-500 disabled:bg-gray-400">
+                                                 {isFindingAddress ? <LoaderCircle className="animate-spin" /> : <LocateFixed />}
+                                             </button>
+                                         </div>
+                                     </div>
+                                     {addStoreError && <p className="text-red-600 text-sm mb-4 mt-2">{addStoreError}</p>}
+                                     <button type="submit" disabled={isAddingStore} className="w-full flex mt-6 items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                         {isAddingStore ? <LoaderCircle className="animate-spin" /> : <PlusCircle size={16} />}
+                                         {isAddingStore ? 'Adding...' : 'Add Store to Map'}
+                                     </button>
+                                 </form>
+                             </div>
                          </div>
-                     </div>
             )}
 
             {/* Add Product Modal */}
@@ -1294,4 +1301,3 @@ export default function App() {
         </div>
     );
 }
-

@@ -372,25 +372,18 @@ export default function App() {
     }, [shoppingList]);
 
     // --- API Calls ---
-    const geocodeAddressWithGemini = async (address) => {
-        const apiKey = ""; 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-        const payload = {
-            contents: [{ parts: [{ text: `Geocode this address: "${address}, UK"` }] }],
-            systemInstruction: { parts: [{ text: `You are a geocoding service. Respond ONLY with a JSON object containing 'lat' and 'lng' keys.` }] },
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: { type: "OBJECT", properties: { "lat": { "type": "NUMBER" }, "lng": { "type": "NUMBER" } }, required: ["lat", "lng"] }
-            }
-        };
-        const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (!response.ok) throw new Error("Geocoding failed.");
-        const result = await response.json();
-        const candidate = result.candidates?.[0];
-        if (candidate && candidate.content?.parts?.[0]?.text) {
-             return JSON.parse(candidate.content.parts[0].text);
+    const geocodeAddress = async (address) => {
+        const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+        const response = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`
+        );
+        const data = await response.json();
+        
+        if (data.results && data.results.length > 0) {
+            const location = data.results[0].geometry.location;
+            return { lat: location.lat, lng: location.lng };
         }
-        throw new Error("Invalid response from geocoding API.");
+        throw new Error('Address not found');
     };
 
     const handleGenerateRecipe = async () => {
@@ -494,7 +487,7 @@ export default function App() {
         setIsGeocoding(true);
         setLocationError(null);
         try {
-            const coords = await geocodeAddressWithGemini(manualLocationInput);
+            const coords = await geocodeAddress(manualLocationInput);
             setSearchLocation(coords);
             setIsManualLocationModalOpen(false);
         } catch (err) {
@@ -705,7 +698,7 @@ export default function App() {
         setIsAddingStore(true);
         setAddStoreError(null);
         try {
-            const coords = await geocodeAddressWithGemini(newStoreAddress);
+            const coords = await geocodeAddress(newStoreAddress);
             const storesCollectionRef = collection(db, `artifacts/${appId}/public/data/stores`);
             await addDoc(storesCollectionRef, { 
                 name: newStoreName.trim(), 
@@ -868,7 +861,7 @@ export default function App() {
 
         return (
             <div className='flex-grow flex items-center justify-center text-center text-gray-500 p-10'>
-                {isLoading ? (
+                {isLoading || !isAuthReady ? (
                     <div className="flex items-center gap-3 text-lg"><LoaderCircle className="animate-spin" /><span>Loading...</span></div>
                 ) : (
                      <button

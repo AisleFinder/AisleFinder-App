@@ -213,6 +213,7 @@ export default function App() {
 
     // --- Geolocation Effect ---
     useEffect(() => {
+        console.log('Starting geolocation check...');
         if (navigator.geolocation) {
             const options = {
                 enableHighAccuracy: true,
@@ -226,12 +227,13 @@ export default function App() {
                         lat: position.coords.latitude,
                         lng: position.coords.longitude,
                     };
+                    console.log('Got device location:', location);
                     setDeviceLocation(location);
                     setSearchLocation(location); 
                     setIsLocating(false);
                 },
                 (error) => {
-                    console.error("Geolocation failed:", error.message || "An unknown error occurred.");
+                    console.error("Geolocation error:", error.code, error.message);
                     let errorMessage;
                     switch(error.code) {
                         case 1: // PERMISSION_DENIED
@@ -262,20 +264,26 @@ export default function App() {
 
     // --- Fetch Stores Effect ---
     useEffect(() => {
-        if (!db || !isAuthReady || !user) return; // Guard against fetching before user is authenticated
+        if (!db || !isAuthReady || !user) {
+            console.log('Not ready to fetch stores:', { db: !!db, isAuthReady, user: !!user });
+            return;
+        }
 
+        console.log('Fetching stores...');
         const storesCollectionPath = `artifacts/${appId}/public/data/stores`;
         const storesRef = collection(db, storesCollectionPath);
 
         const unsubscribe = onSnapshot(storesRef, (snapshot) => {
+            console.log('Stores snapshot:', snapshot.docs.length, 'documents');
             const storesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isCommunity: true }));
+            console.log('Processed stores data:', storesData);
             setStores(storesData);
             if (!selectedStore && user) {
                 setIsStoreModalOpen(true);
             }
             setIsLoading(false);
         }, (err) => {
-            console.error("Error fetching stores:", err);
+            console.error("Firestore error:", err);
             setError("Could not fetch store data. Check Firestore rules and collection path.");
             setIsLoading(false);
         });
@@ -386,6 +394,18 @@ export default function App() {
         throw new Error('Address not found');
     };
 
+    const reverseGeocode = async (lat, lng) => {
+        const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+        const response = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
+        );
+        const data = await response.json();
+        if (data.results && data.results.length > 0) {
+            return data.results[0].formatted_address;
+        }
+        throw new Error('Could not find address for location');
+    };
+
     const handleGenerateRecipe = async () => {
         if (shoppingList.length === 0) {
             setRecipeError("Your shopping list is empty. Add some items to get a recipe idea!");
@@ -395,7 +415,7 @@ export default function App() {
         setRecipe(null);
         setRecipeError(null);
         
-        const apiKey = ""; 
+        const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
         
         const ingredientList = shoppingList.map(item => item.name).join(', ');
@@ -450,29 +470,10 @@ export default function App() {
         }
         setIsFindingAddress(true);
         setAddStoreError(null);
-
-        const apiKey = "";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-        const payload = {
-            contents: [{ parts: [{ text: `What is the street address for the coordinates: latitude ${deviceLocation.lat}, longitude ${deviceLocation.lng}?` }] }],
-            systemInstruction: { parts: [{ text: `You are a reverse geocoding service. Respond ONLY with a JSON object containing a single key "address".` }] },
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: { type: "OBJECT", properties: { "address": { "type": "STRING" } }, required: ["address"] }
-            }
-        };
-
+    
         try {
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!response.ok) throw new Error("Reverse geocoding failed.");
-            const result = await response.json();
-            const candidate = result.candidates?.[0];
-            if (candidate && candidate.content?.parts?.[0]?.text) {
-                 const parsed = JSON.parse(candidate.content.parts[0].text);
-                 setNewStoreAddress(parsed.address);
-            } else {
-                throw new Error("Invalid response from address finding API.");
-            }
+            const address = await reverseGeocode(deviceLocation.lat, deviceLocation.lng);
+            setNewStoreAddress(address);
         } catch (err) {
             console.error(err);
             setAddStoreError("Could not automatically find address. Please enter it manually.");
@@ -687,8 +688,11 @@ export default function App() {
                 updatedBy: user.uid 
             });
             handleAddProductModalClose();
-        } catch (err) { setError("Failed to add new product."); } 
-        finally { setIsAddingProduct(false); }
+        } catch (err) { 
+            setError("Failed to add new product."); 
+        } finally { 
+            setIsAddingProduct(false); 
+        }
     };
     
     const handleAddNewStore = async (e) => {
@@ -698,7 +702,7 @@ export default function App() {
         setIsAddingStore(true);
         setAddStoreError(null);
         try {
-            const coords = await geocodeAddress(newStoreAddress);
+            const coords = await geocodeAddress(newStoreAddress); // Use Google Maps instead
             const storesCollectionRef = collection(db, `artifacts/${appId}/public/data/stores`);
             await addDoc(storesCollectionRef, { 
                 name: newStoreName.trim(), 
@@ -1306,3 +1310,11 @@ export default function App() {
         </div>
     );
 }
+
+
+
+
+
+
+
+

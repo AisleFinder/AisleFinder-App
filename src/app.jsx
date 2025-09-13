@@ -481,7 +481,7 @@ export default function App() {
     useEffect(() => {
         const meta = document.createElement('meta');
         meta.setAttribute('http-equiv', 'Content-Security-Policy');
-        meta.setAttribute('content', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://apis.google.com https://www.gstatic.com https://www.googleapis.com https://accounts.google.com https://firebaseapp.com https://firebase.googleapis.com https://vercel.live https://maps.googleapis.com https://securetoken.googleapis.com https://generativelanguage.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://lh3.googleusercontent.com https://placehold.co https://www.google.com https://maps.gstatic.com https://maps.googleapis.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://generativelanguage.googleapis.com https://apis.google.com https://maps.googleapis.com https://accounts.google.com https://securetoken.googleapis.com https://googleapis.com https://vercel.live; frame-src 'self' https://supermarket-product-find-b6413.firebaseapp.com https://accounts.google.com;");
+        meta.setAttribute('content', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://apis.google.com https://www.gstatic.com https://www.googleapis.com https://accounts.google.com https://firebaseapp.com https://firebase.googleapis.com https://vercel.live https://vercel.com https://maps.googleapis.com https://securetoken.googleapis.com https://generativelanguage.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://vercel.live https://vercel.com *.pusher.com https://lh3.googleusercontent.com https://placehold.co https://www.google.com https://maps.gstatic.com https://maps.googleapis.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://generativelanguage.googleapis.com https://apis.google.com https://maps.googleapis.com https://accounts.google.com https://securetoken.googleapis.com https://googleapis.com https://vercel.live https://vercel.com https://vitals.vercel-insights.com wss://ws-mt1.pusher.com/ *.pusher.com *.pusherapp.com; frame-src 'self' https://supermarket-product-find-b6413.firebaseapp.com https://accounts.google.com https://vercel.live https://vercel.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; block-all-mixed-content; upgrade-insecure-requests;");
         document.head.appendChild(meta);
 
         return () => {
@@ -961,4 +961,6 @@ export default function App() {
         </div>
     );
 }
+
+
 

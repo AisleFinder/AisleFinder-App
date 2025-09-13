@@ -12,10 +12,11 @@ import {
     serverTimestamp,
     deleteDoc
 } from 'firebase/firestore';
-import { Search, MapPin, Edit, X, LoaderCircle, PackageSearch, Store, Building2, PlusCircle, Plus, ShoppingCart, LogOut, User, Settings, HelpCircle, Shield, FileText, Heart, Trash2, PlusSquare, ChevronRight, Map, CheckSquare, Square } from 'lucide-react';
+import { Search, MapPin, Edit, X, LoaderCircle, PackageSearch, Store, Building2, PlusCircle, Plus, ShoppingCart, LogOut, User, Settings, HelpCircle, Shield, FileText, Heart, Trash2, PlusSquare, ArrowRight } from 'lucide-react';
 
 // --- Helper Functions ---
 const getDistanceInMiles = (lat1, lon1, lat2, lon2) => {
+    if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return Infinity;
     const R = 3958.8; // Radius of the Earth in miles
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -93,175 +94,162 @@ const AddRecipeModal = ({ isOpen, onClose, onSave }) => {
     return ( <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in"> <div className="bg-white rounded-lg p-8 w-full max-w-lg shadow-2xl border border-gray-200 relative"> <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><X /></button> <h3 className="text-2xl font-bold mb-6 text-green-600 flex items-center gap-2"><PlusSquare/> Add a Recipe</h3> <form onSubmit={handleSubmit} className="space-y-4"> <div> <label htmlFor="recipeName" className="block text-sm font-medium text-gray-700 mb-1">Recipe Name</label> <input id="recipeName" type="text" value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required/> </div> <div> <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description</label> <textarea id="description" value={description} onChange={e => setDescription(e.target.value)} rows="2" className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800"></textarea> </div> <div> <label htmlFor="ingredients" className="block text-sm font-medium text-gray-700 mb-1">Ingredients (one per line)</label> <textarea id="ingredients" value={ingredients} onChange={e => setIngredients(e.target.value)} rows="4" className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required></textarea> </div> <div> <label htmlFor="instructions" className="block text-sm font-medium text-gray-700 mb-1">Instructions (one per line)</label> <textarea id="instructions" value={instructions} onChange={e => setInstructions(e.target.value)} rows="4" className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required></textarea> </div> <button type="submit" className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-md transition-colors"> Save Recipe </button> </form> </div> </div> );
 };
 
-// --- Newly Added Modals ---
-
-const StoreModal = ({ isOpen, onClose, stores, onSelect, onAddStore }) => {
+const StoreModal = ({ isOpen, onClose, stores, onSelect, onAddStore, isGuest }) => {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-            <div className="bg-white rounded-lg p-6 w-full max-w-lg shadow-2xl border border-gray-200 flex flex-col" style={{height: 'min(90vh, 600px)'}}>
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl shadow-2xl border border-gray-200 flex flex-col" style={{height: 'min(90vh, 800px)'}}>
                 <div className="flex justify-between items-center mb-4 flex-shrink-0">
-                    <h3 className="text-2xl font-bold text-green-600 flex items-center gap-2"><Store /> Select a Store</h3>
+                    <h3 className="text-2xl font-bold text-green-600 flex items-center gap-2"><Store/> Select a Store</h3>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X /></button>
                 </div>
-                <div className="overflow-y-auto flex-grow space-y-2 pr-2">
-                    {stores.map(store => (
-                        <button key={store.id} onClick={() => onSelect(store)} className="w-full text-left p-4 bg-gray-50 hover:bg-green-100 border border-gray-200 rounded-lg transition-colors flex justify-between items-center">
-                            <div>
-                                <p className="font-bold text-green-800">{store.name}</p>
-                                <p className="text-sm text-gray-500">{store.address}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                               {store.distance !== Infinity && <span className="text-sm font-medium text-gray-600">{store.distance.toFixed(1)} mi</span>}
-                               <ChevronRight className="text-gray-400" />
-                            </div>
+                <div className="overflow-y-auto flex-grow pr-2 space-y-3">
+                    {stores.length > 0 ? stores.map(store => (
+                        <button key={store.id} onClick={() => onSelect(store)} className="w-full text-left bg-gray-50 p-4 rounded-lg border-2 border-transparent hover:border-green-500 hover:bg-green-50 transition-all">
+                            <h4 className="font-bold text-lg text-green-700">{store.name}</h4>
+                            <p className="text-sm text-gray-600">{store.address}</p>
+                            {store.distance !== Infinity && <p className="text-sm text-gray-500 font-medium mt-1">{store.distance.toFixed(1)} miles away</p>}
                         </button>
-                    ))}
+                    )) : <p className="text-center text-gray-500 p-10">No stores found.</p>}
                 </div>
-                <div className="mt-4 pt-4 border-t flex-shrink-0">
-                    <button onClick={onAddStore} className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-md transition-colors">
-                        <PlusCircle size={18} /> Add New Store
-                    </button>
-                </div>
+                {!isGuest && (
+                    <div className="mt-4 flex-shrink-0 border-t pt-4">
+                        <button onClick={onAddStore} className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-md transition-colors">
+                            <PlusCircle size={20} /> Add a New Store
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
 };
 
-const AddStoreModal = ({ isOpen, onClose, onAdd, isAdding, newStoreName, setNewStoreName, newStoreAddress, setNewStoreAddress }) => {
+const UpdateProductModal = ({ isOpen, onClose, product, onSubmit, isUpdating, aisle, setAisle, location, setLocation }) => {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-            <div className="bg-white rounded-lg p-8 w-full max-w-lg shadow-2xl border border-gray-200 relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><X /></button>
-                <h3 className="text-2xl font-bold mb-6 text-green-600 flex items-center gap-2"><PlusCircle /> Add New Store</h3>
-                <form onSubmit={onAdd} className="space-y-4">
-                    <div>
-                        <label htmlFor="storeName" className="block text-sm font-medium text-gray-700 mb-1">Store Name</label>
-                        <input id="storeName" type="text" value={newStoreName} onChange={e => setNewStoreName(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required />
-                    </div>
-                    <div>
-                        <label htmlFor="storeAddress" className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                        <input id="storeAddress" type="text" value={newStoreAddress} onChange={e => setNewStoreAddress(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required />
-                    </div>
-                    <button type="submit" disabled={isAdding} className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-md transition-colors disabled:bg-gray-400">
-                        {isAdding ? <LoaderCircle className="animate-spin" /> : 'Save Store'}
-                    </button>
-                </form>
-            </div>
+            <form onSubmit={onSubmit} className="bg-white rounded-lg p-8 w-full max-w-lg shadow-2xl border border-gray-200 relative space-y-4">
+                <button type="button" onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><X /></button>
+                <h3 className="text-2xl font-bold mb-2 text-green-600 flex items-center gap-2"><Edit/> Update Location</h3>
+                <p className="text-gray-700 font-semibold mb-6">for {product?.name}</p>
+                <div>
+                    <label htmlFor="aisle" className="block text-sm font-medium text-gray-700 mb-1">Aisle</label>
+                    <input id="aisle" type="text" value={aisle} onChange={e => setAisle(e.target.value)} placeholder="e.g., 5 or 'Produce'" className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required />
+                </div>
+                <div>
+                    <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">Location in Aisle (optional)</label>
+                    <input id="location" type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g., 'Middle shelf, on the right'" className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" />
+                </div>
+                <button type="submit" disabled={isUpdating} className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-md transition-colors disabled:bg-gray-400">
+                    {isUpdating ? <LoaderCircle className="animate-spin"/> : 'Update Product'}
+                </button>
+            </form>
         </div>
     );
 };
 
-const AddProductModal = ({ isOpen, onClose, onAdd, isAdding, ...props }) => {
+const AddProductModal = ({ isOpen, onClose, onSubmit, isAdding, category, setCategory, customCategory, setCustomCategory, quantity, setQuantity, unit, setUnit, aisle, setAisle, location, setLocation }) => {
     if (!isOpen) return null;
-    const { newProductCategory, setNewProductCategory, customCategory, setCustomCategory, newProductQuantity, setNewProductQuantity, newProductUnit, setNewProductUnit, newProductAisle, setNewProductAisle, newProductLocationInAisle, setNewProductLocationInAisle } = props;
-
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-            <div className="bg-white rounded-lg p-8 w-full max-w-lg shadow-2xl border border-gray-200 relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><X /></button>
-                <h3 className="text-2xl font-bold mb-6 text-green-600 flex items-center gap-2"><PackageSearch /> Add New Product</h3>
-                <form onSubmit={onAdd} className="space-y-4">
+            <form onSubmit={onSubmit} className="bg-white rounded-lg p-8 w-full max-w-lg shadow-2xl border border-gray-200 relative space-y-4">
+                 <button type="button" onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><X /></button>
+                 <h3 className="text-2xl font-bold mb-6 text-green-600 flex items-center gap-2"><PlusCircle/> Add a New Product</h3>
+                 <div>
+                    <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">Product Category</label>
+                    <select id="category" value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800">
+                        {productCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                 </div>
+                 {category === 'Other...' && (
+                     <div className="animate-fade-in-fast">
+                        <label htmlFor="customCategory" className="block text-sm font-medium text-gray-700 mb-1">Custom Category Name</label>
+                        <input id="customCategory" type="text" value={customCategory} onChange={e => setCustomCategory(e.target.value)} placeholder="e.g., 'Organic Tofu'" className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required />
+                     </div>
+                 )}
+                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="productCategory" className="block text-sm font-medium text-gray-700 mb-1">Product Category</label>
-                        <select id="productCategory" value={newProductCategory} onChange={e => setNewProductCategory(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800">
-                            {productCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">Quantity (optional)</label>
+                        <input id="quantity" type="text" value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="e.g., 200" className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" />
+                    </div>
+                    <div>
+                        <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">Unit (optional)</label>
+                        <select id="unit" value={unit} onChange={e => setUnit(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800">
+                            {productUnits.map(u => <option key={u} value={u}>{u}</option>)}
                         </select>
                     </div>
-                    {newProductCategory === 'Other...' && (
-                         <div>
-                            <label htmlFor="customCategory" className="block text-sm font-medium text-gray-700 mb-1">Custom Category Name</label>
-                            <input id="customCategory" type="text" value={customCategory} onChange={e => setCustomCategory(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required />
-                        </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                             <input id="quantity" type="text" value={newProductQuantity} onChange={e => setNewProductQuantity(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" />
-                        </div>
-                        <div>
-                           <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-                           <select id="unit" value={newProductUnit} onChange={e => setNewProductUnit(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800">
-                                {productUnits.map(unit => <option key={unit} value={unit}>{unit}</option>)}
-                           </select>
-                        </div>
-                    </div>
-                     <div>
-                        <label htmlFor="aisle" className="block text-sm font-medium text-gray-700 mb-1">Aisle Number</label>
-                        <input id="aisle" type="text" value={newProductAisle} onChange={e => setNewProductAisle(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required />
-                    </div>
-                     <div>
-                        <label htmlFor="locationInAisle" className="block text-sm font-medium text-gray-700 mb-1">Location in Aisle (e.g., Mid-way, right side)</label>
-                        <input id="locationInAisle" type="text" value={newProductLocationInAisle} onChange={e => setNewProductLocationInAisle(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" />
-                    </div>
-                    <button type="submit" disabled={isAdding} className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-md transition-colors disabled:bg-gray-400">
-                        {isAdding ? <LoaderCircle className="animate-spin" /> : 'Add Product'}
-                    </button>
-                </form>
-            </div>
+                 </div>
+                 <div>
+                    <label htmlFor="add-aisle" className="block text-sm font-medium text-gray-700 mb-1">Aisle</label>
+                    <input id="add-aisle" type="text" value={aisle} onChange={e => setAisle(e.target.value)} placeholder="e.g., 5 or 'Produce'" className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required />
+                </div>
+                <div>
+                    <label htmlFor="add-location" className="block text-sm font-medium text-gray-700 mb-1">Location in Aisle (optional)</label>
+                    <input id="add-location" type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g., 'Middle shelf, on the right'" className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" />
+                </div>
+                 <button type="submit" disabled={isAdding} className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-md transition-colors disabled:bg-gray-400">
+                    {isAdding ? <LoaderCircle className="animate-spin"/> : 'Add Product'}
+                </button>
+            </form>
         </div>
     );
 };
 
-const UpdateProductModal = ({ isOpen, onClose, onUpdate, isUpdating, product, newAisle, setNewAisle, newLocationInAisle, setNewLocationInAisle }) => {
-    if (!isOpen || !product) return null;
+const AddStoreModal = ({ isOpen, onClose, onSubmit, isAdding, name, setName, address, setAddress }) => {
+    if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
-            <div className="bg-white rounded-lg p-8 w-full max-w-lg shadow-2xl border border-gray-200 relative">
-                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><X /></button>
-                <h3 className="text-2xl font-bold mb-2 text-green-600 flex items-center gap-2"><Edit /> Update Location</h3>
-                <p className="text-gray-700 font-semibold mb-6">for {product.name}</p>
-                <form onSubmit={onUpdate} className="space-y-4">
-                    <div>
-                        <label htmlFor="updateAisle" className="block text-sm font-medium text-gray-700 mb-1">Aisle Number</label>
-                        <input id="updateAisle" type="text" value={newAisle} onChange={e => setNewAisle(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required />
-                    </div>
-                    <div>
-                        <label htmlFor="updateLocationInAisle" className="block text-sm font-medium text-gray-700 mb-1">Location in Aisle</label>
-                        <input id="updateLocationInAisle" type="text" value={newLocationInAisle} onChange={e => setNewLocationInAisle(e.target.value)} className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" />
-                    </div>
-                    <button type="submit" disabled={isUpdating} className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-md transition-colors disabled:bg-gray-400">
-                        {isUpdating ? <LoaderCircle className="animate-spin" /> : 'Update Location'}
-                    </button>
-                </form>
-            </div>
+            <form onSubmit={onSubmit} className="bg-white rounded-lg p-8 w-full max-w-lg shadow-2xl border border-gray-200 relative space-y-4">
+                <button type="button" onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><X /></button>
+                <h3 className="text-2xl font-bold mb-6 text-green-600 flex items-center gap-2"><Building2/> Add a New Store</h3>
+                <div>
+                    <label htmlFor="store-name" className="block text-sm font-medium text-gray-700 mb-1">Store Name</label>
+                    <input id="store-name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g., 'Tesco Superstore'" className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required />
+                </div>
+                <div>
+                    <label htmlFor="store-address" className="block text-sm font-medium text-gray-700 mb-1">Store Address</label>
+                    <input id="store-address" type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g., '123 High Street, London'" className="w-full bg-gray-100 border border-gray-300 rounded-md p-2 text-gray-800" required />
+                </div>
+                <button type="submit" disabled={isAdding} className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-md transition-colors disabled:bg-gray-400">
+                    {isAdding ? <LoaderCircle className="animate-spin"/> : 'Add Store'}
+                </button>
+            </form>
         </div>
     );
 };
 
-const ShoppingListModal = ({ isOpen, onClose, list, onRemove, onGoTo, ...props }) => {
+const ShoppingListModal = ({ isOpen, onClose, list, onRemove, onGoToProduct, onGenerateList, isGeneratingList, aiListInput, setAiListInput, generatedItems, onAddAllAiItems }) => {
     if (!isOpen) return null;
-    const { aiListInput, setAiListInput, onGenerate, isGenerating, generatedItems, onAddSelected, selectedAiItems, onAiItemToggle } = props;
-    const isSelectionEmpty = Object.values(selectedAiItems).every(v => !v);
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl shadow-2xl border border-gray-200 flex flex-col" style={{height: 'min(90vh, 800px)'}}>
                 <div className="flex justify-between items-center mb-4 flex-shrink-0">
-                    <h3 className="text-2xl font-bold text-green-600 flex items-center gap-2"><ShoppingCart /> Shopping List</h3>
+                    <h3 className="text-2xl font-bold text-green-600 flex items-center gap-2"><ShoppingCart/> Shopping List</h3>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X /></button>
                 </div>
 
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 flex-shrink-0">
-                    <h4 className="font-semibold text-gray-800 mb-2">Generate List with AI</h4>
-                    <form onSubmit={onGenerate} className="flex gap-2 mb-2">
-                        <input type="text" placeholder="e.g., 'Ingredients for pasta carbonara'" value={aiListInput} onChange={e => setAiListInput(e.target.value)} className="flex-grow bg-white border border-gray-300 rounded-md p-2 text-sm" />
-                        <button type="submit" disabled={isGenerating} className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-md text-sm transition-colors disabled:bg-gray-400">
-                             {isGenerating ? <LoaderCircle size={16} className="animate-spin" /> : 'Generate'}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
+                    <h4 className="font-semibold text-gray-800 mb-2">Generate list from recipe or idea</h4>
+                    <form onSubmit={onGenerateList} className="flex gap-2">
+                        <input 
+                            type="text" 
+                            value={aiListInput}
+                            onChange={(e) => setAiListInput(e.target.value)}
+                            placeholder="e.g., 'Ingredients for lasagna'" 
+                            className="flex-grow bg-white border border-gray-300 rounded-md p-2 text-gray-800"
+                            disabled={isGeneratingList}
+                        />
+                        <button type="submit" className="bg-green-600 hover:bg-green-500 text-white font-bold p-2 rounded-md disabled:bg-gray-400" disabled={isGeneratingList}>
+                           {isGeneratingList ? <LoaderCircle className="animate-spin" size={20} /> : <ArrowRight size={20} />}
                         </button>
                     </form>
                     {generatedItems.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                            {generatedItems.map((item, index) => (
-                                <div key={index} onClick={() => onAiItemToggle(item.name)} className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-200 cursor-pointer">
-                                    {selectedAiItems[item.name] ? <CheckSquare className="text-green-600" size={16} /> : <Square className="text-gray-400" size={16} />}
-                                    <span className="text-sm text-gray-700">{item.name} ({item.quantity})</span>
-                                </div>
-                            ))}
-                            <button onClick={onAddSelected} disabled={isSelectionEmpty} className="w-full text-sm mt-2 flex items-center justify-center gap-2 bg-green-200 hover:bg-green-300 text-green-800 font-bold py-2 px-4 rounded-md transition-colors disabled:bg-gray-200 disabled:text-gray-500">
-                                Add Selected to List
-                            </button>
+                        <div className="mt-3 animate-fade-in-fast">
+                            <ul className="space-y-1 text-sm text-gray-700">
+                                {generatedItems.map(item => <li key={item.name}>- {item.name} ({item.quantity})</li>)}
+                            </ul>
+                            <button onClick={onAddAllAiItems} className="mt-2 text-sm bg-green-100 hover:bg-green-200 text-green-800 font-semibold py-1 px-3 rounded-md">Add All to List</button>
                         </div>
                     )}
                 </div>
@@ -276,8 +264,8 @@ const ShoppingListModal = ({ isOpen, onClose, list, onRemove, onGoTo, ...props }
                                         <p className="text-sm text-gray-500">Aisle {item.aisle || '?'}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => onGoTo(item)} className="text-green-600 hover:text-green-800"><Map size={18} /></button>
-                                        <button onClick={() => onRemove(item.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
+                                        <button onClick={() => onGoToProduct(item)} className="text-green-600 hover:text-green-800"><Search size={18}/></button>
+                                        <button onClick={() => onRemove(item.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18}/></button>
                                     </div>
                                 </div>
                             ))}
@@ -356,7 +344,6 @@ export default function App() {
     // Gemini List Generator State
     const [aiListInput, setAiListInput] = useState('');
     const [generatedItems, setGeneratedItems] = useState([]);
-    const [selectedAiItems, setSelectedAiItems] = useState({});
     const [isGeneratingList, setIsGeneratingList] = useState(false);
 
 
@@ -494,7 +481,7 @@ export default function App() {
     useEffect(() => {
         const meta = document.createElement('meta');
         meta.setAttribute('http-equiv', 'Content-Security-Policy');
-        meta.setAttribute('content', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://apis.google.com https://www.gstatic.com https://www.googleapis.com https://accounts.google.com https://firebaseapp.com https://firebase.googleapis.com https://vercel.live https://maps.googleapis.com https://securetoken.googleapis.com https://generativelanguage.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://lh3.googleusercontent.com https://placehold.co https://www.google.com https://maps.gstatic.com https://maps.googleapis.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://generativelanguage.googleapis.com https://apis.google.com https://maps.googleapis.com https://accounts.google.com https://securetoken.googleapis.com https://googleapis.com; frame-src 'self' https://supermarket-product-find-b6413.firebaseapp.com https://accounts.google.com;");
+        meta.setAttribute('content', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://apis.google.com https://www.gstatic.com https://www.googleapis.com https://accounts.google.com https://firebaseapp.com https://firebase.googleapis.com https://vercel.live https://maps.googleapis.com https://securetoken.googleapis.com https://generativelanguage.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://lh3.googleusercontent.com https://placehold.co https://www.google.com https://maps.gstatic.com https://maps.googleapis.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://generativelanguage.googleapis.com https://apis.google.com https://maps.googleapis.com https://accounts.google.com https://securetoken.googleapis.com https://googleapis.com https://vercel.live; frame-src 'self' https://supermarket-product-find-b6413.firebaseapp.com https://accounts.google.com;");
         document.head.appendChild(meta);
 
         return () => {
@@ -543,14 +530,16 @@ export default function App() {
         
         setIsGeneratingList(true);
         setGeneratedItems([]);
-        setSelectedAiItems({});
 
         // This function requires a Gemini API key.
         console.log(`Generating list for: "${aiListInput}"`);
         // Mock response
-        const mockItems = [{name: "Milk", quantity: "1 gallon"}, {name: "Bread", quantity: "1 loaf"}, {name: "Eggs", quantity: "dozen"}];
-        setGeneratedItems(mockItems);
+        const mockItems = [{name: "Milk", quantity: "1 gallon"}, {name: "Bread", quantity: "1 loaf"}, {name: "Eggs", quantity: "1 dozen"}];
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
+        setGeneratedItems(mockItems);
         setIsGeneratingList(false);
     };
     
@@ -698,8 +687,10 @@ export default function App() {
                 lng: coords.lng,
             });
             handleAddStoreModalClose();
+            setIsStoreModalOpen(true); // Re-open the store modal to see the new store
         } catch (err) {
             console.error(err);
+            setError("Failed to add new store.");
         } finally {
             setIsAddingStore(false);
         }
@@ -717,27 +708,17 @@ export default function App() {
     const handleRemoveFromList = (productId) => {
         setShoppingList(prevList => prevList.filter(item => item.id !== productId));
     };
-
-    const handleAiItemToggle = (itemName) => {
-        setSelectedAiItems(prev => ({
-            ...prev,
-            [itemName]: !prev[itemName]
-        }));
-    };
     
-    const addSelectedAiItemsToList = () => {
-        const itemsToAdd = generatedItems
-            .filter(item => selectedAiItems[item.name])
-            .map(item => ({
-                id: crypto.randomUUID(),
-                name: `${item.name} (${item.quantity})`,
-                aisle: '?',
-                locationInAisle: 'Location not yet specified'
-            }));
+    const addAllAiItemsToList = () => {
+        const itemsToAdd = generatedItems.map(item => ({
+            id: crypto.randomUUID(),
+            name: `${item.name} (${item.quantity})`,
+            aisle: '?',
+            locationInAisle: 'Location not yet specified'
+        }));
 
         setShoppingList(prev => [...prev, ...itemsToAdd]);
         setGeneratedItems([]);
-        setSelectedAiItems({});
         setAiListInput('');
     };
     
@@ -913,48 +894,71 @@ export default function App() {
 
             {renderContent()}
 
+            {/* --- Modals --- */}
             <SettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} />
             <FavouriteRecipesModal isOpen={isFavRecipesModalOpen} onClose={() => setIsFavRecipesModalOpen(false)} recipes={favouriteRecipes} onRemove={handleRemoveFavourite} />
             <AddRecipeModal isOpen={isAddRecipeModalOpen} onClose={() => setIsAddRecipeModalOpen(false)} onSave={handleManualAddRecipe}/>
-
-            {/* --- Other Modals --- */}
-            <StoreModal isOpen={isStoreModalOpen} onClose={() => setIsStoreModalOpen(false)} stores={combinedStores} onSelect={handleStoreSelect} onAddStore={handleAddStoreModalOpen} />
-            <AddStoreModal isOpen={isAddStoreModalOpen} onClose={handleAddStoreModalClose} onAdd={handleAddNewStore} isAdding={isAddingStore} newStoreName={newStoreName} setNewStoreName={setNewStoreName} newStoreAddress={newStoreAddress} setNewStoreAddress={setNewStoreAddress} />
-            <AddProductModal
-                isOpen={isAddProductModalOpen}
-                onClose={handleAddProductModalClose}
-                onAdd={handleAddNewProduct}
-                isAdding={isAddingProduct}
-                newProductCategory={newProductCategory} setNewProductCategory={setNewProductCategory}
-                customCategory={customCategory} setCustomCategory={setCustomCategory}
-                newProductQuantity={newProductQuantity} setNewProductQuantity={setNewProductQuantity}
-                newProductUnit={newProductUnit} setNewProductUnit={setNewProductUnit}
-                newProductAisle={newProductAisle} setNewProductAisle={setNewProductAisle}
-                newProductLocationInAisle={newProductLocationInAisle} setNewProductLocationInAisle={setNewProductLocationInAisle}
+            <StoreModal 
+                isOpen={isStoreModalOpen}
+                onClose={() => setIsStoreModalOpen(false)}
+                stores={combinedStores}
+                onSelect={handleStoreSelect}
+                onAddStore={handleAddStoreModalOpen}
+                isGuest={isGuest}
             />
             <UpdateProductModal 
                 isOpen={isUpdateModalOpen}
                 onClose={handleUpdateModalClose}
-                onUpdate={handleLocationUpdate}
-                isUpdating={isUpdating}
                 product={selectedProduct}
-                newAisle={newAisle} setNewAisle={setNewAisle}
-                newLocationInAisle={newLocationInAisle} setNewLocationInAisle={setNewLocationInAisle}
+                onSubmit={handleLocationUpdate}
+                isUpdating={isUpdating}
+                aisle={newAisle}
+                setAisle={setNewAisle}
+                location={newLocationInAisle}
+                setLocation={setNewLocationInAisle}
             />
-             <ShoppingListModal 
+            <AddProductModal 
+                isOpen={isAddProductModalOpen}
+                onClose={handleAddProductModalClose}
+                onSubmit={handleAddNewProduct}
+                isAdding={isAddingProduct}
+                category={newProductCategory}
+                setCategory={setNewProductCategory}
+                customCategory={customCategory}
+                setCustomCategory={setCustomCategory}
+                quantity={newProductQuantity}
+                setQuantity={setNewProductQuantity}
+                unit={newProductUnit}
+                setUnit={setNewProductUnit}
+                aisle={newProductAisle}
+                setAisle={setNewProductAisle}
+                location={newProductLocationInAisle}
+                setLocation={setNewProductLocationInAisle}
+            />
+            <AddStoreModal 
+                isOpen={isAddStoreModalOpen}
+                onClose={handleAddStoreModalClose}
+                onSubmit={handleAddNewStore}
+                isAdding={isAddingStore}
+                name={newStoreName}
+                setName={setNewStoreName}
+                address={newStoreAddress}
+                setAddress={setNewStoreAddress}
+            />
+            <ShoppingListModal
                 isOpen={isListModalOpen}
                 onClose={() => setIsListModalOpen(false)}
                 list={shoppingList}
                 onRemove={handleRemoveFromList}
-                onGoTo={handleGoToProduct}
-                aiListInput={aiListInput} setAiListInput={setAiListInput}
-                onGenerate={handleGenerateList}
-                isGenerating={isGeneratingList}
+                onGoToProduct={handleGoToProduct}
+                onGenerateList={handleGenerateList}
+                isGeneratingList={isGeneratingList}
+                aiListInput={aiListInput}
+                setAiListInput={setAiListInput}
                 generatedItems={generatedItems}
-                onAddSelected={addSelectedAiItemsToList}
-                selectedAiItems={selectedAiItems}
-                onAiItemToggle={handleAiItemToggle}
+                onAddAllAiItems={addAllAiItemsToList}
             />
         </div>
     );
 }
+

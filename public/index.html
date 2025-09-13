@@ -9,6 +9,13 @@
       name="description"
       content="AisleFinder - Find any product in your local supermarket"
     />
+    
+    <!-- Content Security Policy for Google Maps API -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://securetoken.googleapis.com https://cdn.tailwindcss.com; connect-src 'self' https://maps.googleapis.com https://securetoken.googleapis.com; img-src 'self' https://maps.gstatic.com https://maps.googleapis.com data: blob:; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com;"
+    />
+    
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <title>AisleFinder App</title>
@@ -37,4 +44,3 @@
     -->
   </body>
 </html>
-
